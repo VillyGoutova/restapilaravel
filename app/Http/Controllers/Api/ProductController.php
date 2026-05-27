@@ -7,6 +7,7 @@ use App\Http\Requests\ProductIndexRequest;
 use App\Http\Resources\ProductListResource;
 use App\Http\Resources\ProductResource;
 use App\Models\Product;
+use App\Services\ProductListingQuery;
 
 class ProductController extends Controller
 {
@@ -26,46 +27,15 @@ class ProductController extends Controller
 
         $includeCategories = str_contains($data['include'] ?? '', 'categories');
 
-        $query = Product::query()
-            ->select([
-                'id',
-                'price',
-                'title',
-                'image',
-                'is_active',
-                'created_at',
-            ])
-            ->where('is_active', true)
-            ->when(
-                $includeCategories,
-                fn ($query) => $query->with('categories:id,title,products_count')
-            )
-            ->when(
-                $priceMin !== null,
-                fn ($query) => $query->where('price', '>=', $priceMin)
-            )
-            ->when(
-                $priceMax !== null,
-                fn ($query) => $query->where('price', '<=', $priceMax)
-            )
-            ->when(
-                !empty($data['q']),
-                fn ($query) => $query->whereFullText(['title', 'content'], $data['q'])
-            )
-            ->when(
-                !empty($data['category_ids']),
-                fn ($query) => $query->whereIn('id', function ($subquery) use ($data) {
-                    $subquery
-                        ->select('product_id')
-                        ->from('category_product')
-                        ->whereIn('category_id', $data['category_ids']);
-                })
-            )
-            ->orderBy('id');
-
-        return ProductListResource::collection(
-            $query->cursorPaginate($perPage)->withQueryString()
+        $listing = ProductListingQuery::make(
+            $data,
+            $perPage,
+            $priceMin,
+            $priceMax,
+            $includeCategories,
         );
+
+        return ProductListResource::collection($listing->paginate());
     }
 
     public function show(Product $product)

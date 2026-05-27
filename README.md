@@ -21,7 +21,7 @@ The implementation is designed around a product catalog where:
 - Pivot table: `category_product`
 - Product filtering by price
 - Product filtering by categories
-- Product search by title and content
+- Product search by title and content (Laravel Scout + Meilisearch)
 - Cursor pagination for product listing
 - Cached category listing
 - Seeded demo data:
@@ -51,8 +51,9 @@ Important indexes:
 $table->index(['is_active', 'id']);
 $table->index(['price', 'id']);
 $table->index(['created_at', 'id']);
-$table->fullText(['title', 'content']);
 ```
+
+Full-text search is **not** stored in MySQL. Product text search runs through **Laravel Scout** and **Meilisearch**, which scales to very large catalogs without `FULLTEXT` table scans. Index settings live in `config/scout.php` (`price`, `is_active`, `category_ids` are filterable).
 
 ---
 
@@ -130,6 +131,34 @@ Run migrations and seed the database:
 ```bash
 php artisan migrate:fresh --seed
 ```
+
+### Search (Scout + Meilisearch)
+
+With Docker:
+
+```bash
+docker compose up -d meilisearch
+```
+
+Set in `.env` (see `.env.example`):
+
+```env
+SCOUT_DRIVER=meilisearch
+MEILISEARCH_HOST=http://meilisearch:7700
+MEILISEARCH_KEY=dev-master-key
+MEILISEARCH_MAX_TOTAL_HITS=10000
+```
+
+Apply Meilisearch index settings and import products (run inside the app container if you use Docker):
+
+```bash
+docker compose exec app php artisan scout:sync-index-settings
+docker compose exec app php artisan scout:import "App\Models\Product"
+```
+
+`migrate:fresh --seed` also calls `Product::makeAllSearchable()` so the index is populated after seeding.
+
+For large catalogs (e.g. millions of rows), run imports in chunks via Scout’s queue (`SCOUT_QUEUE=true`) and keep Meilisearch on a dedicated host with enough RAM for your index size.
 
 Start the Laravel development server:
 
@@ -288,7 +317,9 @@ So this request returns products with prices between `10.00` and `100.00`.
 http://127.0.0.1:8000/api/products?q=phone
 ```
 
-Search checks the `title` and `content` fields.
+Search uses **Meilisearch** (via Scout) on `title` and `content`. Price and category filters are applied in the search index, not with MySQL `FULLTEXT`.
+
+Search also uses **cursor** pagination (`links.next`), backed by Meilisearch `offset`/`limit` (faster than deep `page` offsets). The cursor encodes a search `offset`, not a product `id`. Deep search is capped by `MEILISEARCH_MAX_TOTAL_HITS` (default `10000`) on the Meilisearch index.
 
 Because the seeded products use fake text, some search terms may return an empty result. To test search reliably, first open `/api/products`, copy a word from an existing product title, and search for that word.
 

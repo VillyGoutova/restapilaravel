@@ -45,6 +45,8 @@ class CatalogSeeder extends Seeder
 
             $this->recalculateCategoryProductCounts();
         });
+
+        Product::makeAllSearchable();
     }
 
     private function recalculateCategoryProductCounts(): void
