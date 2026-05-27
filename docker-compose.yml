@@ -1,0 +1,89 @@
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    platform: linux/arm64
+    container_name: restapi_laravel_mysql
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+      - ./mysql-config/my.cnf:/etc/mysql/conf.d/my.cnf
+    environment:
+      MYSQL_ROOT_PASSWORD: 6okolaD4e!
+      MYSQL_ALLOW_EMPTY_PASSWORD: "no"
+    networks:
+      - laravel_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p6okolaD4e!"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+
+  # Laravel App
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    platform: linux/arm64
+    image: restapilaravel_app
+    container_name: restapi_laravel_app
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www/html
+      - ./docker/apache-config.conf:/etc/apache2/sites-available/000-default.conf
+      - ./docker/8.4/php.ini:/usr/local/etc/php/conf.d/custom-php.ini
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    env_file:
+      - .env
+    networks:
+      - laravel_network
+    restart: unless-stopped
+
+  # phpMyAdmin
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+
+    container_name: restapi_laravel_phpmyadmin
+    ports:
+      - "8080:80"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: 6okolaD4e!
+      PMA_ARBITRARY: 1
+      UPLOAD_LIMIT: 500M
+    networks:
+      - laravel_network
+    restart: unless-stopped
+
+  # MailHog for email testing
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: restapi_laravel_mailpit
+    ports:
+      - "1025:1025"  # SMTP port
+      - "8025:8025"  # Web UI port
+    networks:
+      - laravel_network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  laravel_network:
+    driver: bridge
