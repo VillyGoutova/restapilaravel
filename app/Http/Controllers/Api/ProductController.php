@@ -40,8 +40,6 @@ class ProductController extends Controller
 
     public function show(Product $product)
     {
-        abort_unless($product->is_active, 404);
-
         $product->load('categories:id,title,products_count');
 
         return new ProductResource($product);

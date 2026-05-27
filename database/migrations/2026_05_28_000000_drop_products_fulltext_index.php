@@ -12,6 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::getConnection()->getDriverName() !== 'mysql') {
+            return;
+        }
+
         Schema::table('products', function (Blueprint $table) {
             $table->dropFullText(['title', 'content']);
         });
@@ -19,6 +23,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (Schema::getConnection()->getDriverName() !== 'mysql') {
+            return;
+        }
+
         Schema::table('products', function (Blueprint $table) {
             $table->fullText(['title', 'content']);
         });

@@ -172,6 +172,19 @@ The API will usually be available at:
 http://127.0.0.1:8000
 ```
 
+### API rate limits
+
+Per-IP limits (configure in `.env`):
+
+| Variable | Default | Applies to |
+|---|---:|---|
+| `API_RATE_LIMIT_PER_MINUTE` | 60 | All `/api/*` routes |
+| `API_PRODUCTS_RATE_LIMIT_PER_MINUTE` | 30 | `GET /api/products` |
+| `API_SEARCH_RATE_LIMIT_PER_MINUTE` | 15 | `GET /api/products` when `q` is set |
+
+Exceeded limits return HTTP `429 Too Many Requests`.
+
+
 ---
 
 ## Seeded Data
@@ -466,7 +479,7 @@ Expected response:
 }
 ```
 
-If the product is inactive, the API returns `404`.
+If the product is inactive or does not exist, the API returns `404` (same response — inactive IDs are not resolved).
 
 ---
 

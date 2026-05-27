@@ -11,12 +11,12 @@ services:
       - ./mysql-init:/docker-entrypoint-initdb.d
       - ./mysql-config/my.cnf:/etc/mysql/conf.d/my.cnf
     environment:
-      MYSQL_ROOT_PASSWORD: 6okolaD4e!
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       MYSQL_ALLOW_EMPTY_PASSWORD: "no"
     networks:
       - laravel_network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p6okolaD4e!"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -64,7 +64,7 @@ services:
       PMA_HOST: mysql
       PMA_PORT: 3306
       PMA_USER: root
-      PMA_PASSWORD: 6okolaD4e!
+      PMA_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       PMA_ARBITRARY: 1
       UPLOAD_LIMIT: 500M
     networks:
@@ -87,7 +87,7 @@ services:
       - laravel_network
     restart: unless-stopped
 
-  # MailHog for email testing
+  # Mailpit for email testing
   mailpit:
     image: axllent/mailpit:latest
     container_name: restapi_laravel_mailpit
